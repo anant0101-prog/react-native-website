@@ -1,49 +1,111 @@
----
-id: environment-setup
-title: Get Started with React Native
-hide_table_of_contents: true
----
+pip install Flaskcricket_fantasy/
+├── app.py
+├── templates/
+│   ├── index.html
+│   └── team_selection.html
+└── static/
+    └── style.cssfrom flask import Flask, render_template, request, redirect, url_for, session
+import sqlite3
 
-import PlatformSupport from '@site/src/theme/PlatformSupport';
-import BoxLink from '@site/src/theme/BoxLink';
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'
 
-**React Native allows developers who know React to create native apps.** At the same time, native developers can use React Native to gain parity between native platforms by writing common features once.
+# Database setup
+def init_db():
+    with sqlite3.connect('fantasy_cricket.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE,
+                password TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS players (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                points INTEGER
+            )
+        ''')
+        conn.commit()
 
-We believe that the best way to experience React Native is through a **Framework**, a toolbox with all the necessary APIs to let you build production ready apps.
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-You can also use React Native without a Framework, however we’ve found that most developers benefit from using a React Native Framework like [Expo](https://expo.dev). Expo provides features like file-based routing, high-quality universal libraries, and the ability to write plugins that modify native code without having to manage native files.
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        with sqlite3.connect('fantasy_cricket.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
+            conn.commit()
+        return redirect(url_for('index'))
+    return render_template('register.html')
 
-<details>
-<summary>Can I use React Native without a Framework?</summary>
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        with sqlite3.connect('fantasy_cricket.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE username=? AND password=?', (username, password))
+            user = cursor.fetchone()
+            if user:
+                session['user_id'] = user[0]
+                return redirect(url_for('team_selection'))
+    return render_template('login.html')
 
-Yes. You can use React Native without a Framework. **However, if you’re building a new app with React Native, we recommend using a Framework.**
+@app.route('/team_selection', methods=['GET', 'POST'])
+def team_selection():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        # Handle team selection logic here
+        pass
 
-In short, you’ll be able to spend time writing your app instead of writing an entire Framework yourself in addition to your app.
+    # Fetch players from the database
+    with sqlite3.connect('fantasy_cricket.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM players')
+        players = cursor.fetchall()
+    return render_template('team_selection.html', players=players)
 
-The React Native community has spent years refining approaches to navigation, accessing native APIs, dealing with native dependencies, and more. Most apps need these core features. A React Native Framework provides them from the start of your app.
-
-Without a Framework, you’ll either have to write your own solutions to implement core features, or you’ll have to piece together a collection of pre-existing libraries to create a skeleton of a Framework. This takes real work, both when starting your app, then later when maintaining it.
-
-If your app has unusual constraints that are not served well by a Framework, or you prefer to solve these problems yourself, you can make a React Native app without a Framework using Android Studio, Xcode. If you’re interested in this path, learn how to [set up your environment](set-up-your-environment) and how to [get started without a framework](getting-started-without-a-framework).
-
-</details>
-
-## Start a new React Native project with Expo
-
-<PlatformSupport platforms={['android', 'ios', 'tv', 'web']} />
-
-Expo is a production-grade React Native Framework. Expo provides developer tooling that makes developing apps easier, such as file-based routing, a standard library of native modules, and much more.
-
-Expo's Framework is free and open source, with an active community on [GitHub](https://github.com/expo) and [Discord](https://chat.expo.dev). The Expo team works in close collaboration with the React Native team at Meta to bring the latest React Native features to the Expo SDK.
-
-The team at Expo also provides Expo Application Services (EAS), an optional set of services that complements Expo, the Framework, in each step of the development process.
-
-To create a new Expo project, run the following in your terminal:
-
-```shell
-npx create-expo-app@latest
-```
-
-Once you’ve created your app, check out the rest of Expo’s getting started guide to start developing your app.
-
-<BoxLink href="https://docs.expo.dev/get-started/set-up-your-environment">Continue with Expo</BoxLink>
+if __name__ == '__main__':
+    init_db()
+    app.run(debug=True)<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Cricket Fantasy</title>
+</head>
+<body>
+    <h1>Welcome to Cricket Fantasy</h1>
+    <a href="{{ url_for('register') }}">Register</a>
+    <a href="{{ url_for('login') }}">Login</a>
+</body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Select Your Team</title>
+</head>
+<body>
+    <h1>Select Your Team</h1>
+    <form method="POST">
+        {% for player in players %}
+            <div>
+                <input type="checkbox" name="players" value="{{ player[0] }}">
+                <label>{{ player[1] }} - {{ player[2] }} points</label>
+            </div>
+        {% endfor %}
+        <button type="submit">Submit
